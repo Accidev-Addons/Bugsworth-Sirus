@@ -71,7 +71,11 @@ end)
 -- Click handlers
 -----------------------------------------------------------------------
 button:SetScript("OnClick", function(self, btn)
-    if btn == "RightButton" then
+    if btn == "RightButton" and IsShiftKeyDown() then
+        if BC.OpenTaintViewer then
+            BC:OpenTaintViewer()
+        end
+    elseif btn == "RightButton" then
         InterfaceOptionsFrame_OpenToCategory("Bugsworth")
         InterfaceOptionsFrame_OpenToCategory("Bugsworth")
     else
@@ -132,6 +136,7 @@ button:SetScript("OnEnter", function(self)
     GameTooltip:AddLine("|cffeda55fЛКМ|r Открыть просмотрщик", 0.5, 0.8, 1)
     GameTooltip:AddLine("|cffeda55fShift+ЛКМ|r Перезагрузить UI", 0.5, 0.8, 1)
     GameTooltip:AddLine("|cffeda55fAlt+ЛКМ|r Очистить ошибки", 0.5, 0.8, 1)
+    GameTooltip:AddLine("|cffeda55fShift+ПКМ|r Анализ Taint", 0.5, 0.8, 1)
     GameTooltip:AddLine("|cffeda55fПКМ|r Настройки", 0.5, 0.8, 1)
     GameTooltip:Show()
 end)

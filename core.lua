@@ -524,6 +524,15 @@ local function onAddonLoaded(addon)
             end
         end
 
+        -- Rebuild taint dedup index for current session
+        taintDedupIndex = {}
+        for _, entry in ipairs(sv.taintLog) do
+            if entry.session == sv.session then
+                local key = (entry.addon or "") .. "\0" .. (entry.func or "")
+                taintDedupIndex[key] = entry
+            end
+        end
+
         -- Start throttle if enabled
         if sv.throttle then
             frame:SetScript("OnUpdate", BC._onUpdate)
@@ -729,6 +738,15 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         return
     end
 
+    if msg == "taint" then
+        if BC.OpenTaintViewer then
+            BC:OpenTaintViewer()
+        else
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Анализатор taint ещё не загружен.")
+        end
+        return
+    end
+
     if msg == "config" then
         InterfaceOptionsFrame_OpenToCategory("Bugsworth")
         InterfaceOptionsFrame_OpenToCategory("Bugsworth")
@@ -829,6 +847,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs count|r — Сводка ошибок")
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs last [N]|r — Показать последние N ошибок в чат")
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs clear|r — Очистить все ошибки")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs taint|r — Анализатор taint (ADDON_ACTION_BLOCKED)")
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs config|r — Настройки")
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs export|r — Экспорт ошибок в SavedVariable")
         DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs ignore [аддон]|r — Игнорировать ошибки аддона")
