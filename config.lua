@@ -52,32 +52,32 @@ frame:SetScript("OnShow", function(self)
     subtitle:SetHeight(24)
     subtitle:SetJustifyH("LEFT")
     subtitle:SetJustifyV("TOP")
-    subtitle:SetText("Unified error capture, display, and persistence.")
+    subtitle:SetText("Захват, отображение и сохранение ошибок.")
 
     autoPopup = newCheckbox(
-        "Auto-open on error",
-        "Automatically open the error viewer when a new bug is captured.",
+        "Авто-открытие при ошибке",
+        "Автоматически открывать просмотрщик при появлении новой ошибки.",
         function(_, value) BugsworthDB.auto = value end
     )
     autoPopup:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -2, -8)
 
     chatNotif = newCheckbox(
-        "Chat notification",
-        "Print a message to chat when a new error is captured.",
+        "Уведомление в чат",
+        "Выводить сообщение в чат при захвате новой ошибки.",
         function(_, value) BugsworthDB.chatframe = value end
     )
     chatNotif:SetPoint("TOPLEFT", autoPopup, "BOTTOMLEFT", 0, -4)
 
     muteCheck = newCheckbox(
-        "Mute error sound",
-        "Disable the error notification sound.",
+        "Отключить звук ошибки",
+        "Отключить звуковое уведомление об ошибке.",
         function(_, value) BugsworthDB.mute = value end
     )
     muteCheck:SetPoint("TOPLEFT", chatNotif, "BOTTOMLEFT", 0, -4)
 
     filterCheck = newCheckbox(
-        "Filter addon action errors",
-        "Ignore ADDON_ACTION_BLOCKED/FORBIDDEN events (taint errors).",
+        "Фильтр ошибок действий аддонов",
+        "Игнорировать события ADDON_ACTION_BLOCKED/FORBIDDEN (ошибки taint).",
         function(_, value)
             BugsworthDB.filterAddonMistakes = value
             if value then
@@ -90,15 +90,15 @@ frame:SetScript("OnShow", function(self)
     filterCheck:SetPoint("TOPLEFT", muteCheck, "BOTTOMLEFT", 0, -4)
 
     throttleCheck = newCheckbox(
-        "Throttle excessive errors",
-        "Pause error capture if more than 20 errors/sec are detected.",
+        "Ограничение частых ошибок",
+        "Приостановить захват, если обнаружено более 20 ошибок/сек.",
         function(_, value) BC:UseThrottling(value) end
     )
     throttleCheck:SetPoint("TOPLEFT", filterCheck, "BOTTOMLEFT", 0, -4)
 
     local sliderLabel = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     sliderLabel:SetJustifyH("LEFT")
-    sliderLabel:SetText("Error limit:")
+    sliderLabel:SetText("Лимит ошибок:")
     sliderLabel:SetPoint("TOPLEFT", throttleCheck, "BOTTOMLEFT", 8, -16)
 
     local sliderValue = self:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -128,19 +128,19 @@ frame:SetScript("OnShow", function(self)
     sliderValue:SetPoint("LEFT", slider, "RIGHT", 8, 0)
 
     local wipeBtn = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
-    wipeBtn:SetText("Wipe All Errors")
+    wipeBtn:SetText("Очистить все ошибки")
     wipeBtn:SetWidth(140)
     wipeBtn:SetHeight(24)
     wipeBtn:SetPoint("TOPLEFT", sliderLabel, "BOTTOMLEFT", -4, -16)
     wipeBtn:SetScript("OnClick", function()
         BC:Reset()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: All errors cleared.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Все ошибки очищены.")
         if BC.OnErrorCountChanged then BC:OnErrorCountChanged() end
     end)
 
     suppressCheck = newCheckbox(
-        "Suppress default error popup",
-        "Hide the default Blizzard Lua error dialog. Bugsworth captures all errors regardless.",
+        "Скрыть стандартное окно ошибок",
+        "Скрыть стандартный диалог Lua-ошибок Blizzard. Bugsworth захватывает все ошибки в любом случае.",
         function(_, value)
             BugsworthDB.suppressDefault = value
             local function setSuppress(f, suppress)
@@ -156,25 +156,25 @@ frame:SetScript("OnShow", function(self)
 
     local diagTitle = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     diagTitle:SetPoint("TOPLEFT", suppressCheck, "BOTTOMLEFT", 0, -12)
-    diagTitle:SetText("|cffeda55fDiagnostics|r (may increase SV size)")
+    diagTitle:SetText("|cffeda55fДиагностика|r (может увеличить размер SV)")
 
     multiLocalsCheck = newCheckbox(
-        "Multi-level locals",
-        "Capture local variables at every stack frame, not just the crash point. Produces much larger error output but gives full call-chain context.",
+        "Многоуровневые локальные",
+        "Захватывать локальные переменные на каждом уровне стека, а не только в точке падения. Увеличивает вывод, но даёт полный контекст.",
         function(_, value) BugsworthDB.multiLocals = value end
     )
     multiLocalsCheck:SetPoint("TOPLEFT", diagTitle, "BOTTOMLEFT", -2, -4)
 
     captureMemCheck = newCheckbox(
-        "Capture addon memory",
-        "Record memory usage of the offending addon at the moment of the error. Calls UpdateAddOnMemoryUsage() per error.",
+        "Захват памяти аддона",
+        "Записывать потребление памяти аддона в момент ошибки. Вызывает UpdateAddOnMemoryUsage() на каждую ошибку.",
         function(_, value) BugsworthDB.captureMemory = value end
     )
     captureMemCheck:SetPoint("TOPLEFT", multiLocalsCheck, "BOTTOMLEFT", 0, -4)
 
     local ignoreTitle = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     ignoreTitle:SetPoint("TOPLEFT", captureMemCheck, "BOTTOMLEFT", 2, -12)
-    ignoreTitle:SetText("Ignored Addons:")
+    ignoreTitle:SetText("Игнорируемые аддоны:")
 
     local ignoreContainer = CreateFrame("Frame", nil, self)
     ignoreContainer:SetPoint("TOPLEFT", ignoreTitle, "BOTTOMLEFT", 0, -4)
@@ -196,7 +196,7 @@ frame:SetScript("OnShow", function(self)
             row.removeBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
             row.removeBtn:SetWidth(60)
             row.removeBtn:SetHeight(18)
-            row.removeBtn:SetText("Remove")
+            row.removeBtn:SetText("Убрать")
             row.removeBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
             ignoreRows[ignoreRowCount] = row
         end
@@ -221,7 +221,7 @@ frame:SetScript("OnShow", function(self)
             row.removeBtn:SetScript("OnClick", function()
                 BC:SetAddonIgnored(name, false)
                 DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                    "|cFFEDA55fBugs|rworth: No longer ignoring |cff44ff44%s|r.", name
+                    "|cFFEDA55fBugs|rworth: Аддон |cff44ff44%s|r больше не игнорируется.", name
                 ))
                 rebuildIgnoreList()
             end)
@@ -233,7 +233,7 @@ frame:SetScript("OnShow", function(self)
             if not emptyLabel then
                 emptyLabel = ignoreContainer:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
                 emptyLabel:SetPoint("TOPLEFT", 4, 0)
-                emptyLabel:SetText("No addons ignored. Right-click an addon in the viewer to ignore it.")
+                emptyLabel:SetText("Нет игнорируемых аддонов. ПКМ по аддону в просмотрщике для игнорирования.")
             end
             emptyLabel:Show()
         end

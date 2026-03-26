@@ -39,10 +39,10 @@ function BC:ColorError(err)
     local ret = err
     ret = ret:gsub("|([^chHr])", "||%1")
     ret = ret:gsub("|$", "||")
-    ret = ret:gsub("\nLocals:\n", "\n|cFFFFFFFFLocals:|r\n")
-    ret = ret:gsub("\nLocals %(all frames%):\n", "\n|cFFFFFFFFLocals (all frames):|r\n")
-    ret = ret:gsub("(%-%-%-) Frame (%d+): (.-) (%-%-%-)", "|cff44aaff%1 Frame %2: %3 %4|r")
-    ret = ret:gsub("\nAddon Memory:", "\n|cFFFFFFFFAddon Memory:|r")
+    ret = ret:gsub("\nЛокальные:\n", "\n|cFFFFFFFFЛокальные:|r\n")
+    ret = ret:gsub("\nЛокальные %(все фреймы%):\n", "\n|cFFFFFFFFЛокальные (все фреймы):|r\n")
+    ret = ret:gsub("(%-%-%-) Фрейм (%d+): (.-) (%-%-%-)", "|cff44aaff%1 Фрейм %2: %3 %4|r")
+    ret = ret:gsub("\nПамять аддона:", "\n|cFFFFFFFFПамять аддона:|r")
     ret = ret:gsub("[Ii][Nn][Tt][Ee][Rr][Ff][Aa][Cc][Ee]\\[Aa][Dd][Dd][Oo][Nn][Ss]\\", "")
     ret = ret:gsub("{%\n +%}", "{}")
     ret = ret:gsub("([ ]-)([%a_][%a_%d]+) = ", "%1|cffffff80%2|r = ")
@@ -145,17 +145,17 @@ end
 -----------------------------------------------------------------------
 local function updateDetail()
     if not selectedError then
-        if textArea then textArea:SetText("|cff44ff44No bugs captured. Nice work!|r") end
+        if textArea then textArea:SetText("|cff44ff44Ошибок нет. Отличная работа!|r") end
         if countLabel then countLabel:SetText("") end
         if sessionLabel then sessionLabel:SetText("") end
         return
     end
 
     local eo = selectedError
-    local source = eo.source and ("Sent by " .. eo.source) or "Local"
-    local timeStr = (eo.session == BC:GetSessionId()) and "Today" or (eo.time or "unknown")
+    local source = eo.source and ("Отправлено " .. eo.source) or "Локальная"
+    local timeStr = (eo.session == BC:GetSessionId()) and "Сегодня" or (eo.time or "неизвестно")
     sessionLabel:SetText(string.format(
-        "%s - |cffff4411%s|r - Session |cff44ff44%d|r",
+        "%s - |cffff4411%s|r - Сессия |cff44ff44%d|r",
         timeStr, source, eo.session
     ))
 
@@ -261,9 +261,9 @@ local function rebuildNav()
             header.bg:SetVertexColor(0.5, 0.3, 0.1, 0.5)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:AddLine(addonName)
-            GameTooltip:AddLine(string.format("%d unique errors, %d total hits", group.count, group.totalHits), 0.8, 0.8, 0.8)
-            GameTooltip:AddLine("|cffeda55fClick|r to expand/collapse", 0.5, 0.8, 1)
-            GameTooltip:AddLine("|cffeda55fRight-click|r to ignore addon", 0.5, 0.8, 1)
+            GameTooltip:AddLine(string.format("%d уник. ошибок, %d всего", group.count, group.totalHits), 0.8, 0.8, 0.8)
+            GameTooltip:AddLine("|cffeda55fЛКМ|r — развернуть/свернуть", 0.5, 0.8, 1)
+            GameTooltip:AddLine("|cffeda55fПКМ|r — игнорировать аддон", 0.5, 0.8, 1)
             GameTooltip:Show()
         end)
         header:SetScript("OnLeave", function()
@@ -276,7 +276,7 @@ local function rebuildNav()
             if btn == "RightButton" then
                 BC:SetAddonIgnored(addonName, true)
                 DEFAULT_CHAT_FRAME:AddMessage(string.format(
-                    "|cFFEDA55fBugs|rworth: Now ignoring errors from |cffff8800%s|r. Remove via /bugs config.",
+                    "|cFFEDA55fBugs|rworth: Ошибки от |cffff8800%s|r теперь игнорируются. Убрать: /bugs config.",
                     addonName
                 ))
                 rebuildNav()
@@ -472,7 +472,7 @@ local function createViewer()
     -- Search placeholder text
     local placeholder = searchBox:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     placeholder:SetPoint("LEFT", 4, 0)
-    placeholder:SetText("Search errors...")
+    placeholder:SetText("Поиск ошибок...")
     searchBox:SetScript("OnEditFocusGained", function() placeholder:Hide() end)
     searchBox:SetScript("OnEditFocusLost", function(self)
         if self:GetText() == "" then placeholder:Show() end
@@ -512,7 +512,7 @@ local function createViewer()
     nextButton:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", 0, 0)
     nextButton:SetWidth(80)
     nextButton:SetHeight(22)
-    nextButton:SetText("Next >")
+    nextButton:SetText("Далее >")
     nextButton:SetScript("OnClick", function()
         if IsShiftKeyDown() then
             selectedError = currentContents[#currentContents]
@@ -528,7 +528,7 @@ local function createViewer()
     prevButton:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", 0, 0)
     prevButton:SetWidth(80)
     prevButton:SetHeight(22)
-    prevButton:SetText("< Previous")
+    prevButton:SetText("< Назад")
     prevButton:SetScript("OnClick", function()
         if IsShiftKeyDown() then
             selectedError = currentContents[1]
@@ -545,10 +545,10 @@ local function createViewer()
     clearButton:SetPoint("BOTTOM", detailPanel, "BOTTOM", -50, 0)
     clearButton:SetWidth(90)
     clearButton:SetHeight(22)
-    clearButton:SetText("Clear All")
+    clearButton:SetText("Очистить")
     clearButton:SetScript("OnClick", function()
         BC:Reset()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: All errors cleared.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Все ошибки очищены.")
         if BC.OnErrorCountChanged then BC:OnErrorCountChanged() end
         currentContents = {}
         selectedError = nil
@@ -561,7 +561,7 @@ local function createViewer()
     copyButton:SetPoint("BOTTOM", detailPanel, "BOTTOM", 50, 0)
     copyButton:SetWidth(90)
     copyButton:SetHeight(22)
-    copyButton:SetText("Copy All")
+    copyButton:SetText("Копировать")
     copyButton:SetScript("OnClick", function()
         if textArea then
             textArea:SetFocus()
@@ -569,7 +569,7 @@ local function createViewer()
             -- Flash a "Press Ctrl+C" reminder
             if copyFlash then
                 copyFlash:SetAlpha(1)
-                copyFlash.text:SetText("|cff44ff44Press Ctrl+C to copy!|r")
+                copyFlash.text:SetText("|cff44ff44Нажми Ctrl+C для копирования!|r")
                 copyFlash:Show()
                 -- Fade out after 2 seconds
                 local elapsed = 0
@@ -619,7 +619,7 @@ local function createViewer()
     local allTab = CreateFrame("Button", "BugsworthTabAll", window, "CharacterFrameTabButtonTemplate")
     allTab:SetFrameStrata("FULLSCREEN")
     allTab:SetPoint("TOPLEFT", window, "BOTTOMLEFT", 0, 8)
-    allTab:SetText("All Bugs")
+    allTab:SetText("Все ошибки")
     allTab:SetScript("OnLoad", nil)
     allTab:SetScript("OnShow", nil)
     allTab:SetScript("OnClick", setActiveTab)
@@ -629,7 +629,7 @@ local function createViewer()
     local sessionTab = CreateFrame("Button", "BugsworthTabSession", window, "CharacterFrameTabButtonTemplate")
     sessionTab:SetFrameStrata("FULLSCREEN")
     sessionTab:SetPoint("LEFT", allTab, "RIGHT")
-    sessionTab:SetText("This Session")
+    sessionTab:SetText("Текущая сессия")
     sessionTab:SetScript("OnLoad", nil)
     sessionTab:SetScript("OnShow", nil)
     sessionTab:SetScript("OnClick", setActiveTab)
@@ -639,7 +639,7 @@ local function createViewer()
     local prevTab = CreateFrame("Button", "BugsworthTabPrev", window, "CharacterFrameTabButtonTemplate")
     prevTab:SetFrameStrata("FULLSCREEN")
     prevTab:SetPoint("LEFT", sessionTab, "RIGHT")
-    prevTab:SetText("Previous")
+    prevTab:SetText("Предыдущая")
     prevTab:SetScript("OnLoad", nil)
     prevTab:SetScript("OnShow", nil)
     prevTab:SetScript("OnClick", setActiveTab)
@@ -692,7 +692,7 @@ function BC:OnError()
         end
         -- Chat notification
         if BugsworthDB.chatframe then
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: There's a bug in your soup!")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Обнаружена новая ошибка!")
         end
         lastErrorTime = GetTime()
     end

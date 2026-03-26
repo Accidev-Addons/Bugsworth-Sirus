@@ -79,7 +79,7 @@ button:SetScript("OnClick", function(self, btn)
             ReloadUI()
         elseif IsAltKeyDown() then
             BC:Reset()
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: All errors cleared.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Все ошибки очищены.")
             BC:OnErrorCountChanged()
             -- Refresh viewer if it's open
             if BugsworthFrame and BugsworthFrame:IsShown() then
@@ -103,9 +103,9 @@ button:SetScript("OnEnter", function(self)
     local sessionId = BC:GetSessionId()
     local errs = BC:GetErrors(sessionId)
     if #errs == 0 then
-        GameTooltip:AddLine("No bugs this session!", 0.2, 1, 0.2)
+        GameTooltip:AddLine("Нет ошибок за сессию!", 0.2, 1, 0.2)
     else
-        GameTooltip:AddLine(string.format("%d bugs this session:", #errs), 1, 0.8, 0.2)
+        GameTooltip:AddLine(string.format("Ошибок за сессию: %d", #errs), 1, 0.8, 0.2)
         local pattern = "^(.-)\n"
         local count = 0
         for _, err in ipairs(errs) do
@@ -121,7 +121,7 @@ button:SetScript("OnEnter", function(self)
             if count >= 8 then
                 local remaining = #errs - count
                 if remaining > 0 then
-                    GameTooltip:AddLine(string.format("  ... and %d more", remaining), 0.6, 0.6, 0.6)
+                    GameTooltip:AddLine(string.format("  ... и ещё %d", remaining), 0.6, 0.6, 0.6)
                 end
                 break
             end
@@ -129,10 +129,10 @@ button:SetScript("OnEnter", function(self)
     end
 
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("|cffeda55fClick|r Open viewer", 0.5, 0.8, 1)
-    GameTooltip:AddLine("|cffeda55fShift-click|r Reload UI", 0.5, 0.8, 1)
-    GameTooltip:AddLine("|cffeda55fAlt-click|r Wipe errors", 0.5, 0.8, 1)
-    GameTooltip:AddLine("|cffeda55fRight-click|r Settings", 0.5, 0.8, 1)
+    GameTooltip:AddLine("|cffeda55fЛКМ|r Открыть просмотрщик", 0.5, 0.8, 1)
+    GameTooltip:AddLine("|cffeda55fShift+ЛКМ|r Перезагрузить UI", 0.5, 0.8, 1)
+    GameTooltip:AddLine("|cffeda55fAlt+ЛКМ|r Очистить ошибки", 0.5, 0.8, 1)
+    GameTooltip:AddLine("|cffeda55fПКМ|r Настройки", 0.5, 0.8, 1)
     GameTooltip:Show()
 end)
 

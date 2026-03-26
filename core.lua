@@ -165,7 +165,7 @@ end
 function BC:Pause()
     if paused then return end
     DEFAULT_CHAT_FRAME:AddMessage(format(
-        "|cffff4444BUGSWORTH|r has stopped capturing (>%d errors/sec). Resuming in %ds.",
+        "|cffff4444BUGSWORTH|r остановил захват (>%d ошибок/сек). Возобновление через %d сек.",
         ERRORS_PER_SEC_BEFORE_THROTTLE, TIME_TO_RESUME
     ))
     self:UnregisterAddonActionEvents()
@@ -175,7 +175,7 @@ end
 
 function BC:Resume()
     if not paused then return end
-    DEFAULT_CHAT_FRAME:AddMessage("|cffff4444BUGSWORTH|r is capturing errors again.")
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff4444BUGSWORTH|r снова захватывает ошибки.")
     self:RegisterAddonActionEvents()
     paused = nil
     triggerEvent("Bugsworth_CaptureResumed")
@@ -251,7 +251,7 @@ local function saveError(message, errorType)
     if type(oe_message) == "table" then
         oe_message = oe_message[1]
     end
-    local dedupKey = oe_message and (oe_message:match("^(.-)\nLocals:") or oe_message) or ""
+    local dedupKey = oe_message and (oe_message:match("^(.-)\nЛокальные:") or oe_message) or ""
 
     -- O(1) dedup lookup (Fix 2)
     local existing = dedupIndex[dedupKey]
@@ -431,26 +431,26 @@ local function grabError(err)
             local loc = debuglocals(level)
             if loc and loc ~= "" then
                 if not hasAny then
-                    errmsg = errmsg .. "\n|cFFFFFFFFLocals (all frames):|r\n"
+                    errmsg = errmsg .. "\n|cFFFFFFFFЛокальные (все фреймы):|r\n"
                     hasAny = true
                 end
                 local frameName = info:match("^(.-)\n") or info
                 frameName = frameName:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
                 if frameName:len() > 80 then frameName = frameName:sub(1, 80) .. "..." end
-                errmsg = errmsg .. format("|cffeda55f--- Frame %d: %s ---|r\n", level - baseLevel + 1, frameName)
+                errmsg = errmsg .. format("|cffeda55f--- Фрейм %d: %s ---|r\n", level - baseLevel + 1, frameName)
                 errmsg = errmsg .. loc .. "\n"
             end
             level = level + 1
             if level > baseLevel + 10 then break end  -- safety cap
         end
         if not hasAny then
-            errmsg = errmsg .. "\nLocals:|r\n(none)\n"
+            errmsg = errmsg .. "\nЛокальные:|r\n(нет)\n"
         end
     else
         -- Single-level (default)
         local locals = debuglocals(baseLevel)
         if locals then
-            errmsg = errmsg .. "\nLocals:|r\n" .. locals
+            errmsg = errmsg .. "\nЛокальные:|r\n" .. locals
         end
     end
 
@@ -461,7 +461,7 @@ local function grabError(err)
             UpdateAddOnMemoryUsage()
             local mem = GetAddOnMemoryUsage(addon)
             if mem and mem > 0 then
-                errmsg = errmsg .. format("\n|cFFFFFFFFAddon Memory:|r %s: |cffff7fff%.1f KB|r\n", addon, mem)
+                errmsg = errmsg .. format("\n|cFFFFFFFFПамять аддона:|r %s: |cffff7fff%.1f КБ|r\n", addon, mem)
             end
         end
     end
@@ -505,6 +505,8 @@ local function onAddonLoaded(addon)
         -- Diagnostic settings (off by default — toggled in config)
         if type(sv.multiLocals) ~= "boolean" then sv.multiLocals = false end
         if type(sv.captureMemory) ~= "boolean" then sv.captureMemory = false end
+        -- Taint log
+        if type(sv.taintLog) ~= "table" then sv.taintLog = {} end
 
         -- New session
         sv.session = sv.session + 1
@@ -517,7 +519,7 @@ local function onAddonLoaded(addon)
         for _, err in ipairs(sv.errors) do
             if err.session == sv.session then
                 local m = type(err.message) == "table" and err.message[1] or err.message
-                local key = m and (m:match("^(.-)\nLocals:") or m) or ""
+                local key = m and (m:match("^(.-)\nЛокальные:") or m) or ""
                 dedupIndex[key] = err
             end
         end
@@ -543,10 +545,119 @@ local function onAddonLoaded(addon)
 end
 
 -----------------------------------------------------------------------
+-- Taint analysis system
+-----------------------------------------------------------------------
+local taintDedupIndex = {}
+
+function BC:GetTaintLog()
+    return BugsworthDB.taintLog or {}
+end
+
+function BC:GetTaintLogForSession(sessionId)
+    local log = BugsworthDB.taintLog or {}
+    if not sessionId then return log end
+    local result = {}
+    for _, entry in ipairs(log) do
+        if entry.session == sessionId then
+            result[#result + 1] = entry
+        end
+    end
+    return result
+end
+
+function BC:ClearTaintLog()
+    BugsworthDB.taintLog = {}
+    taintDedupIndex = {}
+end
+
+local function saveTaintEntry(event, addon, func)
+    if not BugsworthDB.taintLog then BugsworthDB.taintLog = {} end
+    local log = BugsworthDB.taintLog
+
+    -- Capture detailed debug info
+    local stack = debugstack(3) or ""
+    local locals = ""
+    if BugsworthDB.multiLocals then
+        local level = 3
+        local parts = {}
+        while level <= 13 do
+            local info = debugstack(level, 1, 0)
+            if not info or info == "" then break end
+            local loc = debuglocals(level)
+            if loc and loc ~= "" then
+                local frameName = info:match("^(.-)\n") or info
+                frameName = frameName:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
+                if frameName:len() > 80 then frameName = frameName:sub(1, 80) .. "..." end
+                parts[#parts + 1] = format("--- Фрейм %d: %s ---\n%s", level - 2, frameName, loc)
+            end
+            level = level + 1
+        end
+        if #parts > 0 then
+            locals = concat(parts, "\n")
+        end
+    else
+        locals = debuglocals(3) or ""
+    end
+
+    -- Dedup by addon+func within session
+    local dedupKey = (addon or "") .. "\0" .. (func or "")
+    local existing = taintDedupIndex[dedupKey]
+    if existing and existing.session == (BugsworthDB.session or 0) then
+        existing.counter = (existing.counter or 1) + 1
+        existing.lastTime = date("%H:%M:%S")
+        -- Update stack/locals to latest occurrence
+        existing.stack = stack
+        existing.locals = locals
+        if BC.OnTaintLogChanged then BC:OnTaintLogChanged() end
+        return
+    end
+
+    -- Build call chain from stack
+    local chain = {}
+    for line in stack:gmatch("(.-)\n") do
+        local cleaned = line:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
+        cleaned = cleaned:match("^%s*(.-)%s*$") or cleaned
+        if cleaned ~= "" and not cleaned:find("Bugsworth") then
+            chain[#chain + 1] = cleaned
+        end
+    end
+
+    local entry = {
+        event = event,
+        addon = addon or "?",
+        func = func or "?",
+        stack = stack,
+        locals = locals,
+        callChain = chain,
+        time = date("%Y/%m/%d %H:%M:%S"),
+        lastTime = date("%H:%M:%S"),
+        session = BugsworthDB.session or 0,
+        counter = 1,
+    }
+
+    log[#log + 1] = entry
+    taintDedupIndex[dedupKey] = entry
+
+    -- Trim taint log (keep last 200 entries max)
+    if #log > 200 then
+        local trimmed = {}
+        for i = #log - 199, #log do
+            trimmed[#trimmed + 1] = log[i]
+        end
+        BugsworthDB.taintLog = trimmed
+    end
+
+    if BC.OnTaintLogChanged then BC:OnTaintLogChanged() end
+end
+
+-----------------------------------------------------------------------
 -- Event dispatcher
 -----------------------------------------------------------------------
 frame:SetScript("OnEvent", function(self, event, arg1, arg2)
     if event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+        -- Store in dedicated taint log
+        saveTaintEntry(event, arg1, arg2)
+        -- Also store in main error DB as before
         grabError(ADDON_CALL_PROTECTED:format(event, arg1 or "?", arg2 or "?"))
     elseif event == "ADDON_LOADED" then
         onAddonLoaded(arg1 or "?")
@@ -572,7 +683,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2)
         local errCount = #(BugsworthDB.errors or {})
         local sessionId = BugsworthDB.session or 0
         DEFAULT_CHAT_FRAME:AddMessage(format(
-            "|cFFEDA55fBugs|rworth: Session |cff44ff44%d|r started. |cff88ccff%d|r errors in database.",
+            "|cFFEDA55fBugs|rworth: Сессия |cff44ff44%d|r начата. |cff88ccff%d|r ошибок в базе.",
             sessionId, errCount
         ))
     end
@@ -595,7 +706,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
 
     if msg == "clear" then
         BC:Reset()
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: All errors cleared.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Все ошибки очищены.")
         if BC.OnErrorCountChanged then BC:OnErrorCountChanged() end
         return
     end
@@ -612,7 +723,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
             end
         end
         DEFAULT_CHAT_FRAME:AddMessage(format(
-            "|cFFEDA55fBugs|rworth: %d unique errors (%d this session, %d previous).",
+            "|cFFEDA55fBugs|rworth: %d уник. ошибок (%d за сессию, %d ранее).",
             #db, thisSession, prevSessions
         ))
         return
@@ -630,11 +741,11 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         local n = tonumber(lastN) or 1
         local db = BugsworthDB.errors or {}
         if #db == 0 then
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: No errors in database.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Нет ошибок в базе.")
             return
         end
         n = min(n, #db)
-        DEFAULT_CHAT_FRAME:AddMessage(format("|cFFEDA55fBugs|rworth: Last %d error(s):", n))
+        DEFAULT_CHAT_FRAME:AddMessage(format("|cFFEDA55fBugs|rworth: Последние %d ошибок:", n))
         for i = #db, #db - n + 1, -1 do
             local err = db[i]
             local m = err.message
@@ -655,22 +766,22 @@ SlashCmdList["BUGSWORTH"] = function(msg)
     if msg == "export" then
         local db = BugsworthDB.errors or {}
         if #db == 0 then
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: No errors to export.")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Нет ошибок для экспорта.")
             return
         end
         local lines = {}
-        lines[#lines + 1] = format("Bugsworth Error Export — %s — %d errors", date("%Y-%m-%d %H:%M:%S"), #db)
+        lines[#lines + 1] = format("Bugsworth — Экспорт ошибок — %s — %d ошибок", date("%Y-%m-%d %H:%M:%S"), #db)
         lines[#lines + 1] = string.rep("=", 60)
         for i, err in ipairs(db) do
             local m = err.message
             if type(m) == "table" then m = concat(m, "") end
-            lines[#lines + 1] = format("\n--- Error %d [Session %d] [%s] [%dx] ---",
+            lines[#lines + 1] = format("\n--- Ошибка %d [Сессия %d] [%s] [%dx] ---",
                 i, err.session or 0, err.time or "?", err.counter or 1)
-            lines[#lines + 1] = m or "(no message)"
+            lines[#lines + 1] = m or "(нет сообщения)"
         end
         BugsworthExport = concat(lines, "\n")
         DEFAULT_CHAT_FRAME:AddMessage(format(
-            "|cFFEDA55fBugs|rworth: Exported %d errors to BugsworthExport. |cff88ccff/reload|r then check WTF/Account/<name>/SavedVariables/Bugsworth.lua",
+            "|cFFEDA55fBugs|rworth: Экспортировано %d ошибок в BugsworthExport. |cff88ccff/reload|r и смотри WTF/Account/<name>/SavedVariables/Bugsworth.lua",
             #db
         ))
         return
@@ -682,18 +793,18 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         if addon then
             BC:SetAddonIgnored(addon, true)
             DEFAULT_CHAT_FRAME:AddMessage(format(
-                "|cFFEDA55fBugs|rworth: Now ignoring errors from |cffff8800%s|r.", addon
+                "|cFFEDA55fBugs|rworth: Ошибки от |cffff8800%s|r теперь игнорируются.", addon
             ))
         else
             local list = BC:GetIgnoredAddons()
             local count = 0
-            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Ignored addons:")
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Игнорируемые аддоны:")
             for name, _ in pairs(list) do
                 DEFAULT_CHAT_FRAME:AddMessage("  - " .. name)
                 count = count + 1
             end
             if count == 0 then
-                DEFAULT_CHAT_FRAME:AddMessage("  (none)")
+                DEFAULT_CHAT_FRAME:AddMessage("  (нет)")
             end
         end
         return
@@ -705,7 +816,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         if addon then
             BC:SetAddonIgnored(addon, false)
             DEFAULT_CHAT_FRAME:AddMessage(format(
-                "|cFFEDA55fBugs|rworth: No longer ignoring |cff44ff44%s|r.", addon
+                "|cFFEDA55fBugs|rworth: |cff44ff44%s|r больше не игнорируется.", addon
             ))
         end
         return
@@ -713,16 +824,16 @@ SlashCmdList["BUGSWORTH"] = function(msg)
 
     -- /bugs help
     if msg == "help" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth commands:")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs|r — Open viewer")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs count|r — Error summary")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs last [N]|r — Print last N errors to chat")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs clear|r — Wipe all errors")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs config|r — Open settings")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs export|r — Export errors to SavedVariable")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs ignore [addon]|r — Ignore addon errors")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs unignore [addon]|r — Stop ignoring addon")
-        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs help|r — Show this help")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth — команды:")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs|r — Открыть просмотрщик")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs count|r — Сводка ошибок")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs last [N]|r — Показать последние N ошибок в чат")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs clear|r — Очистить все ошибки")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs config|r — Настройки")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs export|r — Экспорт ошибок в SavedVariable")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs ignore [аддон]|r — Игнорировать ошибки аддона")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs unignore [аддон]|r — Перестать игнорировать")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffeda55f/bugs help|r — Показать справку")
         return
     end
 
@@ -730,7 +841,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
     if BC.OpenViewer then
         BC:OpenViewer()
     else
-        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Viewer not loaded yet.")
+        DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Просмотрщик ещё не загружен.")
     end
 end
 
