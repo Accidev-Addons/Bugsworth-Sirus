@@ -154,17 +154,13 @@ frame:SetScript("OnShow", function(self)
         "Hide the default Blizzard Lua error dialog. Bugsworth captures all errors regardless.",
         function(_, value)
             BugsworthDB.suppressDefault = value
-            if value then
-                local sf = _G.ScriptErrors
-                if sf and sf.SetScript then
-                    sf:SetScript("OnShow", function(self) self:Hide() end)
-                end
-            else
-                local sf = _G.ScriptErrors
-                if sf and sf.SetScript then
-                    sf:SetScript("OnShow", nil)
+            local function setSuppress(f, suppress)
+                if f and f.SetScript then
+                    f:SetScript("OnShow", suppress and function(self) self:Hide() end or nil)
                 end
             end
+            setSuppress(_G.BasicScriptErrors, value)
+            setSuppress(_G.ScriptErrorsFrame, value)
         end
     )
     suppressCheck:SetPoint("TOPLEFT", wipeBtn, "BOTTOMLEFT", 4, -12)
@@ -179,46 +175,61 @@ frame:SetScript("OnShow", function(self)
     ignoreContainer:SetPoint("RIGHT", -32, 0)
     ignoreContainer:SetHeight(120)
 
-    -- Build ignore list UI
+    local ignoreRows = {}
+    local ignoreRowCount = 0
+    local emptyLabel = nil
+
+    local function acquireIgnoreRow()
+        ignoreRowCount = ignoreRowCount + 1
+        local row = ignoreRows[ignoreRowCount]
+        if not row then
+            row = CreateFrame("Frame", nil, ignoreContainer)
+            row:SetHeight(18)
+            row.label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            row.label:SetPoint("LEFT", 4, 0)
+            row.removeBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+            row.removeBtn:SetWidth(60)
+            row.removeBtn:SetHeight(18)
+            row.removeBtn:SetText("Remove")
+            row.removeBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+            ignoreRows[ignoreRowCount] = row
+        end
+        row:ClearAllPoints()
+        row:Show()
+        return row
+    end
+
     local function rebuildIgnoreList()
-        -- Clear old children
-        local children = { ignoreContainer:GetChildren() }
-        for _, child in ipairs(children) do child:Hide() end
+        for i = 1, ignoreRowCount do ignoreRows[i]:Hide() end
+        ignoreRowCount = 0
+        if emptyLabel then emptyLabel:Hide() end
 
         local list = BC:GetIgnoredAddons()
         local y = 0
         local count = 0
         for name, _ in pairs(list) do
-            local row = CreateFrame("Frame", nil, ignoreContainer)
-            row:SetHeight(18)
+            local row = acquireIgnoreRow()
             row:SetPoint("TOPLEFT", ignoreContainer, "TOPLEFT", 0, -y)
             row:SetPoint("RIGHT", ignoreContainer, "RIGHT", 0, 0)
-
-            local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            label:SetPoint("LEFT", 4, 0)
-            label:SetText("|cffff8800" .. name .. "|r")
-
-            local removeBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-            removeBtn:SetWidth(60)
-            removeBtn:SetHeight(18)
-            removeBtn:SetText("Remove")
-            removeBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-            removeBtn:SetScript("OnClick", function()
+            row.label:SetText("|cffff8800" .. name .. "|r")
+            row.removeBtn:SetScript("OnClick", function()
                 BC:SetAddonIgnored(name, false)
                 DEFAULT_CHAT_FRAME:AddMessage(string.format(
                     "|cFFEDA55fBugs|rworth: No longer ignoring |cff44ff44%s|r.", name
                 ))
                 rebuildIgnoreList()
             end)
-
             y = y + 20
             count = count + 1
         end
 
         if count == 0 then
-            local none = ignoreContainer:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-            none:SetPoint("TOPLEFT", 4, 0)
-            none:SetText("No addons ignored. Right-click an addon in the viewer to ignore it.")
+            if not emptyLabel then
+                emptyLabel = ignoreContainer:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+                emptyLabel:SetPoint("TOPLEFT", 4, 0)
+                emptyLabel:SetText("No addons ignored. Right-click an addon in the viewer to ignore it.")
+            end
+            emptyLabel:Show()
         end
     end
     rebuildIgnoreList()

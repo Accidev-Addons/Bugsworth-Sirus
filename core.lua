@@ -5,6 +5,13 @@
 
 local ADDON_NAME = ...
 
+-- Cached globals for hot paths
+local format = string.format
+local find, match, sub, len, gsub, gmatch = string.find, string.match, string.sub, string.len, string.gsub, string.gmatch
+local floor, min = math.floor, math.min
+local concat, sort = table.concat, table.sort
+local tostring, type, pairs, ipairs, date = tostring, type, pairs, ipairs, date
+
 -- SavedVariables
 BugsworthDB = BugsworthDB or {}
 
@@ -122,7 +129,7 @@ end
 
 function BC:SetLimit(l)
     if type(l) ~= "number" or l < 10 or l > MAX_ERRORS then return end
-    BugsworthDB.limit = math.floor(l)
+    BugsworthDB.limit = floor(l)
     trimDB(l)
 end
 
@@ -163,7 +170,7 @@ end
 
 function BC:Pause()
     if paused then return end
-    DEFAULT_CHAT_FRAME:AddMessage(string.format(
+    DEFAULT_CHAT_FRAME:AddMessage(format(
         "|cffff4444BUGSWORTH|r has stopped capturing (>%d errors/sec). Resuming in %ds.",
         ERRORS_PER_SEC_BEFORE_THROTTLE, TIME_TO_RESUME
     ))
@@ -347,12 +354,11 @@ local function grabError(err)
                     local objectName = addon:upper()
                     if not version then version = _G[objectName .. "_VERSION"] end
                     if not revision then revision = _G[objectName .. "_REVISION"] or _G[objectName .. "_REV"] end
-                    if not version then version = GetAddOnMetadata(addon, "Version") end
+                    if not version and GetAddOnMetadata then version = GetAddOnMetadata(addon, "Version") end
                     if not version and revision then version = revision
                     elseif type(version) == "string" and revision and not version:find(revision) then
                         version = version .. "." .. revision
                     end
-                    if not version then version = GetAddOnMetadata(addon, "X-Curse-Packaged-Version") end
                     addonVersionCache[addon] = version or false
                     cachedVersion = version or false
                 end
@@ -514,16 +520,19 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2)
 
         -- Auto-suppress default error frame
         if BugsworthDB.suppressDefault then
-            local sf = _G.ScriptErrors
-            if sf and sf.SetScript then
-                sf:SetScript("OnShow", function(self) self:Hide() end)
+            local function suppressFrame(f)
+                if f and f.SetScript then
+                    f:SetScript("OnShow", function(self) self:Hide() end)
+                end
             end
+            suppressFrame(_G.BasicScriptErrors)
+            suppressFrame(_G.ScriptErrorsFrame)
         end
 
         -- Startup notification
         local errCount = #(BugsworthDB.errors or {})
         local sessionId = BugsworthDB.session or 0
-        DEFAULT_CHAT_FRAME:AddMessage(string.format(
+        DEFAULT_CHAT_FRAME:AddMessage(format(
             "|cFFEDA55fBugs|rworth: Session |cff44ff44%d|r started. |cff88ccff%d|r errors in database.",
             sessionId, errCount
         ))
@@ -563,7 +572,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
                 prevSessions = prevSessions + (err.counter or 1)
             end
         end
-        DEFAULT_CHAT_FRAME:AddMessage(string.format(
+        DEFAULT_CHAT_FRAME:AddMessage(format(
             "|cFFEDA55fBugs|rworth: %d unique errors (%d this session, %d previous).",
             #db, thisSession, prevSessions
         ))
@@ -585,19 +594,17 @@ SlashCmdList["BUGSWORTH"] = function(msg)
             DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: No errors in database.")
             return
         end
-        n = math.min(n, #db)
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFFEDA55fBugs|rworth: Last %d error(s):", n))
+        n = min(n, #db)
+        DEFAULT_CHAT_FRAME:AddMessage(format("|cFFEDA55fBugs|rworth: Last %d error(s):", n))
         for i = #db, #db - n + 1, -1 do
             local err = db[i]
             local m = err.message
-            if type(m) == "table" then m = table.concat(m, "") end
-            local firstLine = (m or ""):match("^(.-)") or "?"
-            firstLine = firstLine:match("^(.-)") or firstLine
+            if type(m) == "table" then m = concat(m, "") end
             -- Get meaningful first line
             local line = (m or ""):match("^(.-)\n") or (m or ""):sub(1, 120)
             line = line:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
             if line:len() > 120 then line = line:sub(1, 120) .. "..." end
-            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+            DEFAULT_CHAT_FRAME:AddMessage(format(
                 "  |cff999999%dx|r |cffeda55f[S%d]|r %s",
                 err.counter or 1, err.session or 0, line
             ))
@@ -613,17 +620,17 @@ SlashCmdList["BUGSWORTH"] = function(msg)
             return
         end
         local lines = {}
-        lines[#lines + 1] = string.format("Bugsworth Error Export — %s — %d errors", date("%Y-%m-%d %H:%M:%S"), #db)
+        lines[#lines + 1] = format("Bugsworth Error Export — %s — %d errors", date("%Y-%m-%d %H:%M:%S"), #db)
         lines[#lines + 1] = string.rep("=", 60)
         for i, err in ipairs(db) do
             local m = err.message
-            if type(m) == "table" then m = table.concat(m, "") end
-            lines[#lines + 1] = string.format("\n--- Error %d [Session %d] [%s] [%dx] ---",
+            if type(m) == "table" then m = concat(m, "") end
+            lines[#lines + 1] = format("\n--- Error %d [Session %d] [%s] [%dx] ---",
                 i, err.session or 0, err.time or "?", err.counter or 1)
             lines[#lines + 1] = m or "(no message)"
         end
-        BugsworthExport = table.concat(lines, "\n")
-        DEFAULT_CHAT_FRAME:AddMessage(string.format(
+        BugsworthExport = concat(lines, "\n")
+        DEFAULT_CHAT_FRAME:AddMessage(format(
             "|cFFEDA55fBugs|rworth: Exported %d errors to BugsworthExport. |cff88ccff/reload|r then check WTF/Account/<name>/SavedVariables/Bugsworth.lua",
             #db
         ))
@@ -635,7 +642,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         local addon = msg:match("^ignore%s+(.+)$")
         if addon then
             BC:SetAddonIgnored(addon, true)
-            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+            DEFAULT_CHAT_FRAME:AddMessage(format(
                 "|cFFEDA55fBugs|rworth: Now ignoring errors from |cffff8800%s|r.", addon
             ))
         else
@@ -658,7 +665,7 @@ SlashCmdList["BUGSWORTH"] = function(msg)
         local addon = msg:match("^unignore%s+(.+)$")
         if addon then
             BC:SetAddonIgnored(addon, false)
-            DEFAULT_CHAT_FRAME:AddMessage(string.format(
+            DEFAULT_CHAT_FRAME:AddMessage(format(
                 "|cFFEDA55fBugs|rworth: No longer ignoring |cff44ff44%s|r.", addon
             ))
         end
