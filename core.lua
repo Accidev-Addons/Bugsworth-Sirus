@@ -1,11 +1,5 @@
------------------------------------------------------------------------
--- BUGSWORTH · core.lua
--- Error capture engine (merged from !BugGrabber + BugSack)
------------------------------------------------------------------------
-
 local ADDON_NAME = ...
 
--- Cached globals for hot paths
 local format = string.format
 local find, match, sub, len, gsub, gmatch = string.find, string.match, string.sub, string.len, string.gsub, string.gmatch
 local floor, min = math.floor, math.min
@@ -425,9 +419,51 @@ local function grabError(err)
 
     errorsSinceLastReset = errorsSinceLastReset + 1
 
-    local locals = debuglocals(real and 4 or 3)
-    if locals then
-        errmsg = errmsg .. "\nLocals:|r\n" .. locals
+    -- Locals capture
+    local baseLevel = real and 4 or 3
+    if BugsworthDB.multiLocals then
+        -- Multi-level: capture locals at every stack frame
+        local level = baseLevel
+        local hasAny = false
+        while true do
+            local info = debugstack(level, 1, 0)
+            if not info or info == "" then break end
+            local loc = debuglocals(level)
+            if loc and loc ~= "" then
+                if not hasAny then
+                    errmsg = errmsg .. "\n|cFFFFFFFFLocals (all frames):|r\n"
+                    hasAny = true
+                end
+                local frameName = info:match("^(.-)\n") or info
+                frameName = frameName:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
+                if frameName:len() > 80 then frameName = frameName:sub(1, 80) .. "..." end
+                errmsg = errmsg .. format("|cffeda55f--- Frame %d: %s ---|r\n", level - baseLevel + 1, frameName)
+                errmsg = errmsg .. loc .. "\n"
+            end
+            level = level + 1
+            if level > baseLevel + 10 then break end  -- safety cap
+        end
+        if not hasAny then
+            errmsg = errmsg .. "\nLocals:|r\n(none)\n"
+        end
+    else
+        -- Single-level (default)
+        local locals = debuglocals(baseLevel)
+        if locals then
+            errmsg = errmsg .. "\nLocals:|r\n" .. locals
+        end
+    end
+
+    -- Addon memory snapshot
+    if BugsworthDB.captureMemory then
+        local addon = errmsg:match("[Aa]dd[Oo]ns\\([^\\]+)")
+        if addon then
+            UpdateAddOnMemoryUsage()
+            local mem = GetAddOnMemoryUsage(addon)
+            if mem and mem > 0 then
+                errmsg = errmsg .. format("\n|cFFFFFFFFAddon Memory:|r %s: |cffff7fff%.1f KB|r\n", addon, mem)
+            end
+        end
     end
 
     saveError(errmsg, errorType)
@@ -463,9 +499,12 @@ local function onAddonLoaded(addon)
         if type(sv.auto) ~= "boolean" then sv.auto = false end
         if type(sv.chatframe) ~= "boolean" then sv.chatframe = false end
         if type(sv.mute) ~= "boolean" then sv.mute = false end
-        if type(sv.filterAddonMistakes) ~= "boolean" then sv.filterAddonMistakes = true end
+        if type(sv.filterAddonMistakes) ~= "boolean" then sv.filterAddonMistakes = false end
         if type(sv.suppressDefault) ~= "boolean" then sv.suppressDefault = true end
         if type(sv.ignoreList) ~= "table" then sv.ignoreList = {} end
+        -- Diagnostic settings (off by default — toggled in config)
+        if type(sv.multiLocals) ~= "boolean" then sv.multiLocals = false end
+        if type(sv.captureMemory) ~= "boolean" then sv.captureMemory = false end
 
         -- New session
         sv.session = sv.session + 1

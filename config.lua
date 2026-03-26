@@ -1,8 +1,3 @@
------------------------------------------------------------------------
--- BUGSWORTH · config.lua
--- Interface options panel
------------------------------------------------------------------------
-
 local BC = _G.Bugsworth
 if not BC then return end
 
@@ -23,8 +18,8 @@ local function newCheckbox(label, description, onClick)
     return check
 end
 
--- Widget references for refresh
 local autoPopup, chatNotif, muteCheck, filterCheck, throttleCheck, suppressCheck, slider
+local multiLocalsCheck, captureMemCheck
 local initialized = false
 
 local function refresh()
@@ -36,6 +31,8 @@ local function refresh()
     throttleCheck:SetChecked(BC:IsThrottling())
     slider:SetValue(BC:GetLimit())
     if suppressCheck then suppressCheck:SetChecked(BugsworthDB.suppressDefault) end
+    if multiLocalsCheck then multiLocalsCheck:SetChecked(BugsworthDB.multiLocals) end
+    if captureMemCheck then captureMemCheck:SetChecked(BugsworthDB.captureMemory) end
     if frame.rebuildIgnoreList then frame.rebuildIgnoreList() end
 end
 
@@ -57,7 +54,6 @@ frame:SetScript("OnShow", function(self)
     subtitle:SetJustifyV("TOP")
     subtitle:SetText("Unified error capture, display, and persistence.")
 
-    -- Auto popup
     autoPopup = newCheckbox(
         "Auto-open on error",
         "Automatically open the error viewer when a new bug is captured.",
@@ -65,7 +61,6 @@ frame:SetScript("OnShow", function(self)
     )
     autoPopup:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -2, -8)
 
-    -- Chat notification
     chatNotif = newCheckbox(
         "Chat notification",
         "Print a message to chat when a new error is captured.",
@@ -73,7 +68,6 @@ frame:SetScript("OnShow", function(self)
     )
     chatNotif:SetPoint("TOPLEFT", autoPopup, "BOTTOMLEFT", 0, -4)
 
-    -- Mute sound
     muteCheck = newCheckbox(
         "Mute error sound",
         "Disable the error notification sound.",
@@ -81,7 +75,6 @@ frame:SetScript("OnShow", function(self)
     )
     muteCheck:SetPoint("TOPLEFT", chatNotif, "BOTTOMLEFT", 0, -4)
 
-    -- Filter addon mistakes
     filterCheck = newCheckbox(
         "Filter addon action errors",
         "Ignore ADDON_ACTION_BLOCKED/FORBIDDEN events (taint errors).",
@@ -96,7 +89,6 @@ frame:SetScript("OnShow", function(self)
     )
     filterCheck:SetPoint("TOPLEFT", muteCheck, "BOTTOMLEFT", 0, -4)
 
-    -- Throttle
     throttleCheck = newCheckbox(
         "Throttle excessive errors",
         "Pause error capture if more than 20 errors/sec are detected.",
@@ -104,7 +96,6 @@ frame:SetScript("OnShow", function(self)
     )
     throttleCheck:SetPoint("TOPLEFT", filterCheck, "BOTTOMLEFT", 0, -4)
 
-    -- Error limit slider
     local sliderLabel = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     sliderLabel:SetJustifyH("LEFT")
     sliderLabel:SetText("Error limit:")
@@ -136,7 +127,6 @@ frame:SetScript("OnShow", function(self)
     slider:SetPoint("LEFT", sliderLabel, "RIGHT", 16, 0)
     sliderValue:SetPoint("LEFT", slider, "RIGHT", 8, 0)
 
-    -- Wipe button
     local wipeBtn = CreateFrame("Button", nil, self, "UIPanelButtonTemplate")
     wipeBtn:SetText("Wipe All Errors")
     wipeBtn:SetWidth(140)
@@ -148,7 +138,6 @@ frame:SetScript("OnShow", function(self)
         if BC.OnErrorCountChanged then BC:OnErrorCountChanged() end
     end)
 
-    -- Suppress default error popup
     suppressCheck = newCheckbox(
         "Suppress default error popup",
         "Hide the default Blizzard Lua error dialog. Bugsworth captures all errors regardless.",
@@ -165,9 +154,26 @@ frame:SetScript("OnShow", function(self)
     )
     suppressCheck:SetPoint("TOPLEFT", wipeBtn, "BOTTOMLEFT", 4, -12)
 
-    -- Ignored addons section
+    local diagTitle = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    diagTitle:SetPoint("TOPLEFT", suppressCheck, "BOTTOMLEFT", 0, -12)
+    diagTitle:SetText("|cffeda55fDiagnostics|r (may increase SV size)")
+
+    multiLocalsCheck = newCheckbox(
+        "Multi-level locals",
+        "Capture local variables at every stack frame, not just the crash point. Produces much larger error output but gives full call-chain context.",
+        function(_, value) BugsworthDB.multiLocals = value end
+    )
+    multiLocalsCheck:SetPoint("TOPLEFT", diagTitle, "BOTTOMLEFT", -2, -4)
+
+    captureMemCheck = newCheckbox(
+        "Capture addon memory",
+        "Record memory usage of the offending addon at the moment of the error. Calls UpdateAddOnMemoryUsage() per error.",
+        function(_, value) BugsworthDB.captureMemory = value end
+    )
+    captureMemCheck:SetPoint("TOPLEFT", multiLocalsCheck, "BOTTOMLEFT", 0, -4)
+
     local ignoreTitle = self:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    ignoreTitle:SetPoint("TOPLEFT", suppressCheck, "BOTTOMLEFT", 0, -12)
+    ignoreTitle:SetPoint("TOPLEFT", captureMemCheck, "BOTTOMLEFT", 2, -12)
     ignoreTitle:SetText("Ignored Addons:")
 
     local ignoreContainer = CreateFrame("Frame", nil, self)
@@ -234,7 +240,6 @@ frame:SetScript("OnShow", function(self)
     end
     rebuildIgnoreList()
 
-    -- Store rebuild function for refresh
     frame.rebuildIgnoreList = rebuildIgnoreList
 
     initialized = true
