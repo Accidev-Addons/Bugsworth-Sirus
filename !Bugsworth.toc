@@ -1,0 +1,16 @@
+## Interface: 30300
+## Title: |cFFEDA55fBugs|r|cFFFFFFFFworth|r
+## Notes: Lua error capture, persistence, and display.
+## Author: Synastria
+## Version: 2.0.2
+## X-Category: Development Tools
+## SavedVariables: BugsworthDB, BugsworthExport
+## OptionalDeps: LibStub, CallbackHandler-1.0
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+
+core.lua
+viewer.lua
+config.lua
+minimap.lua
