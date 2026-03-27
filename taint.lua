@@ -73,21 +73,38 @@ local function formatTaintDetail(entry)
     -- Event info
     local eventColor = entry.event == "ADDON_ACTION_FORBIDDEN" and "|cffff0000" or "|cffff8800"
     lines[#lines + 1] = format("|cFFFFFFFFСобытие:|r %s%s|r", eventColor, entry.event or "?")
-    lines[#lines + 1] = format("|cFFFFFFFFАддон:|r |cffeda55f%s|r", entry.addon or "?")
+    lines[#lines + 1] = format("|cFFFFFFFFАддон:|r |cffeda55f%s|r%s",
+        entry.addon or "?",
+        (entry.addonVersion and entry.addonVersion ~= "") and format(" |cff999999v%s|r", entry.addonVersion) or "")
     lines[#lines + 1] = format("|cFFFFFFFFФункция:|r |cff44ff44%s|r", entry.func or "?")
     lines[#lines + 1] = format("|cFFFFFFFFВремя:|r %s", entry.time or "?")
     lines[#lines + 1] = format("|cFFFFFFFFПоследнее:|r %s", entry.lastTime or "?")
     lines[#lines + 1] = format("|cFFFFFFFFСессия:|r %d", entry.session or 0)
     lines[#lines + 1] = format("|cFFFFFFFFПовторений:|r |cffff7fff%d|r", entry.counter or 1)
 
+    -- Context
+    lines[#lines + 1] = ""
+    local combatStr = entry.inCombat and "|cffff0000ДА|r" or "|cff44ff44НЕТ|r"
+    lines[#lines + 1] = format("|cFFFFFFFFВ бою:|r %s", combatStr)
+    if entry.zone and entry.zone ~= "" then
+        local zoneStr = entry.zone
+        if entry.subZone and entry.subZone ~= "" then
+            zoneStr = zoneStr .. " — " .. entry.subZone
+        end
+        lines[#lines + 1] = format("|cFFFFFFFFЗона:|r |cff88bbff%s|r", zoneStr)
+    end
+    if entry.instanceType and entry.instanceType ~= "none" then
+        lines[#lines + 1] = format("|cFFFFFFFFТип инстанса:|r |cffff88ff%s|r", entry.instanceType)
+    end
+
     -- Explanation
     lines[#lines + 1] = ""
     if entry.event == "ADDON_ACTION_FORBIDDEN" then
-        lines[#lines + 1] = "|cffff4444FORBIDDEN означает, что действие было полностью заблокировано.|r"
+        lines[#lines + 1] = "|cffff4444FORBIDDEN — действие полностью заблокировано.|r"
         lines[#lines + 1] = "|cffff4444Аддон пытался вызвать защищённую функцию в бою.|r"
     else
-        lines[#lines + 1] = "|cffff8800BLOCKED означает, что вызов защищённой функции был перехвачен.|r"
-        lines[#lines + 1] = "|cffff8800Это обычно происходит из-за taint (заражения) фреймов.|r"
+        lines[#lines + 1] = "|cffff8800BLOCKED — вызов защищённой функции перехвачен.|r"
+        lines[#lines + 1] = "|cffff8800Обычно из-за taint (заражения) execution path.|r"
     end
 
     -- Call chain
@@ -108,7 +125,6 @@ local function formatTaintDetail(entry)
             local cleaned = line:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
             cleaned = cleaned:match("^%s*(.-)%s*$") or cleaned
             if cleaned ~= "" then
-                -- Colorize path:line: pattern
                 cleaned = cleaned:gsub("(.-)(%d+):", "|cffeda55f%1|r|cff00ff00%2|r:")
                 lines[#lines + 1] = "  " .. cleaned
             end
@@ -131,9 +147,9 @@ local function formatTaintDetail(entry)
         lines[#lines + 1] = locText
     end
 
-    -- Copyable plain-text version hint
+    -- Hint
     lines[#lines + 1] = ""
-    lines[#lines + 1] = "|cff666666--- Нажмите 'Копировать' для текстовой версии ---|r"
+    lines[#lines + 1] = "|cff666666--- 'Копировать' — одну ошибку | 'Копировать всё' — весь лог для AI ---|r"
 
     return concat(lines, "\n")
 end
@@ -144,19 +160,37 @@ end
 local function formatTaintPlain(entry)
     local lines = {}
 
-    lines[#lines + 1] = "=== TAINT ANALYSIS ==="
+    lines[#lines + 1] = "=== TAINT ERROR REPORT ==="
+    lines[#lines + 1] = format("Client: WoW 3.3.5a (Sirus) | Build: %s", (GetBuildInfo and GetBuildInfo()) or "unknown")
     lines[#lines + 1] = ""
     lines[#lines + 1] = format("Event: %s", entry.event or "?")
     lines[#lines + 1] = format("Addon: %s", entry.addon or "?")
-    lines[#lines + 1] = format("Function: %s", entry.func or "?")
+    lines[#lines + 1] = format("Addon version: %s", (entry.addonVersion and entry.addonVersion ~= "") and entry.addonVersion or "unknown")
+    lines[#lines + 1] = format("Protected function: %s()", entry.func or "?")
+    lines[#lines + 1] = format("In combat: %s", entry.inCombat and "YES" or "NO")
     lines[#lines + 1] = format("Time: %s", entry.time or "?")
     lines[#lines + 1] = format("Last seen: %s", entry.lastTime or "?")
+    lines[#lines + 1] = format("Occurrences: %d", entry.counter or 1)
     lines[#lines + 1] = format("Session: %d", entry.session or 0)
-    lines[#lines + 1] = format("Count: %d", entry.counter or 1)
+    if entry.zone and entry.zone ~= "" then
+        local zoneStr = entry.zone
+        if entry.subZone and entry.subZone ~= "" then
+            zoneStr = zoneStr .. " / " .. entry.subZone
+        end
+        lines[#lines + 1] = format("Zone: %s", zoneStr)
+    end
+    if entry.instanceType and entry.instanceType ~= "none" then
+        lines[#lines + 1] = format("Instance type: %s", entry.instanceType)
+    end
+
+    -- Error message as user sees it
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = format("Error message: [%s] AddOn '%s' tried to call the protected function '%s'.",
+        entry.event or "?", entry.addon or "?", entry.func or "?")
 
     if entry.callChain and #entry.callChain > 0 then
         lines[#lines + 1] = ""
-        lines[#lines + 1] = "--- Call Chain ---"
+        lines[#lines + 1] = "--- Call Chain (taint propagation path) ---"
         for i, frame in ipairs(entry.callChain) do
             lines[#lines + 1] = format("  %d. %s", i, frame)
         end
@@ -164,15 +198,105 @@ local function formatTaintPlain(entry)
 
     if entry.stack and entry.stack ~= "" then
         lines[#lines + 1] = ""
-        lines[#lines + 1] = "--- Full Stack ---"
+        lines[#lines + 1] = "--- Full Stack Trace ---"
         lines[#lines + 1] = entry.stack
     end
 
     if entry.locals and entry.locals ~= "" then
         lines[#lines + 1] = ""
-        lines[#lines + 1] = "--- Locals ---"
+        lines[#lines + 1] = "--- Local Variables ---"
         lines[#lines + 1] = entry.locals
     end
+
+    return concat(lines, "\n")
+end
+
+-----------------------------------------------------------------------
+-- Format ALL taint entries as single AI-friendly report
+-----------------------------------------------------------------------
+local function formatAllTaintPlain(list)
+    local lines = {}
+
+    lines[#lines + 1] = "=========================================="
+    lines[#lines + 1] = "BUGSWORTH TAINT ANALYSIS — FULL REPORT"
+    lines[#lines + 1] = "=========================================="
+    lines[#lines + 1] = format("Client: WoW 3.3.5a (Sirus) | Build: %s", (GetBuildInfo and GetBuildInfo()) or "unknown")
+    lines[#lines + 1] = format("Report generated: %s", date("%Y/%m/%d %H:%M:%S"))
+    lines[#lines + 1] = format("Total unique taint errors: %d", #list)
+
+    -- Summary table
+    local totalHits = 0
+    local addonSummary = {}
+    local addonOrder = {}
+    for _, entry in ipairs(list) do
+        totalHits = totalHits + (entry.counter or 1)
+        local a = entry.addon or "?"
+        if not addonSummary[a] then
+            addonSummary[a] = { unique = 0, total = 0, funcs = {} }
+            addonOrder[#addonOrder + 1] = a
+        end
+        addonSummary[a].unique = addonSummary[a].unique + 1
+        addonSummary[a].total = addonSummary[a].total + (entry.counter or 1)
+        addonSummary[a].funcs[entry.func or "?"] = true
+    end
+    lines[#lines + 1] = format("Total occurrences: %d", totalHits)
+    lines[#lines + 1] = format("Addons affected: %d", #addonOrder)
+
+    -- Per-addon summary
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "--- Addon Summary ---"
+    for _, addonName in ipairs(addonOrder) do
+        local s = addonSummary[addonName]
+        local funcList = {}
+        for f in pairs(s.funcs) do funcList[#funcList + 1] = f .. "()" end
+        lines[#lines + 1] = format("  %s: %d unique, %d total — functions: %s",
+            addonName, s.unique, s.total, concat(funcList, ", "))
+    end
+
+    -- Individual entries
+    for idx, entry in ipairs(list) do
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = format("------ Taint #%d of %d ------", idx, #list)
+        lines[#lines + 1] = format("Event: %s", entry.event or "?")
+        lines[#lines + 1] = format("Addon: %s (v%s)", entry.addon or "?",
+            (entry.addonVersion and entry.addonVersion ~= "") and entry.addonVersion or "unknown")
+        lines[#lines + 1] = format("Protected function: %s()", entry.func or "?")
+        lines[#lines + 1] = format("In combat: %s", entry.inCombat and "YES" or "NO")
+        lines[#lines + 1] = format("Time: %s | Last: %s | Count: %d",
+            entry.time or "?", entry.lastTime or "?", entry.counter or 1)
+        if entry.zone and entry.zone ~= "" then
+            lines[#lines + 1] = format("Zone: %s%s",
+                entry.zone, (entry.subZone and entry.subZone ~= "") and (" / " .. entry.subZone) or "")
+        end
+        if entry.instanceType and entry.instanceType ~= "none" then
+            lines[#lines + 1] = format("Instance type: %s", entry.instanceType)
+        end
+
+        lines[#lines + 1] = format("Error: [%s] AddOn '%s' tried to call the protected function '%s'.",
+            entry.event or "?", entry.addon or "?", entry.func or "?")
+
+        if entry.callChain and #entry.callChain > 0 then
+            lines[#lines + 1] = "Call chain:"
+            for i, frame in ipairs(entry.callChain) do
+                lines[#lines + 1] = format("  %d. %s", i, frame)
+            end
+        end
+
+        if entry.stack and entry.stack ~= "" then
+            lines[#lines + 1] = "Stack:"
+            lines[#lines + 1] = entry.stack
+        end
+
+        if entry.locals and entry.locals ~= "" then
+            lines[#lines + 1] = "Locals:"
+            lines[#lines + 1] = entry.locals
+        end
+    end
+
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "=========================================="
+    lines[#lines + 1] = "END OF TAINT REPORT"
+    lines[#lines + 1] = "=========================================="
 
     return concat(lines, "\n")
 end
@@ -444,39 +568,58 @@ local function createTaintViewer()
         DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Taint-лог очищен.")
     end)
 
-    -- Copy button
+    -- Helper: show copy flash and set text for clipboard
+    local function doCopyFlash(plainText)
+        if not detailText then return end
+        detailText:SetText(plainText)
+        detailText:SetFocus()
+        detailText:HighlightText()
+
+        if copyFlash then
+            copyFlash:SetAlpha(1)
+            copyFlash.text:SetText("|cff44ff44Ctrl+C для копирования!|r")
+            copyFlash:Show()
+            local elapsed = 0
+            copyFlash:SetScript("OnUpdate", function(self, dt)
+                elapsed = elapsed + dt
+                if elapsed > 3 then
+                    self:Hide()
+                    self:SetScript("OnUpdate", nil)
+                    detailText:HighlightText(0, 0)
+                    detailText:ClearFocus()
+                    updateDetail()
+                elseif elapsed > 2.5 then
+                    self:SetAlpha(1 - ((elapsed - 2.5) / 0.5))
+                end
+            end)
+        end
+    end
+
+    -- Copy single entry button
     copyButton = CreateFrame("Button", "BugsworthTaintCopyBtn", toolbar, "UIPanelButtonTemplate")
     copyButton:SetPoint("RIGHT", toolbar, "RIGHT", 0, 0)
     copyButton:SetWidth(100)
     copyButton:SetHeight(22)
     copyButton:SetText("Копировать")
     copyButton:SetScript("OnClick", function()
-        if selectedEntry and detailText then
-            -- Switch to plain text for copy
-            detailText:SetText(formatTaintPlain(selectedEntry))
-            detailText:SetFocus()
-            detailText:HighlightText()
-
-            if copyFlash then
-                copyFlash:SetAlpha(1)
-                copyFlash.text:SetText("|cff44ff44Ctrl+C для копирования!|r")
-                copyFlash:Show()
-                local elapsed = 0
-                copyFlash:SetScript("OnUpdate", function(self, dt)
-                    elapsed = elapsed + dt
-                    if elapsed > 2 then
-                        self:Hide()
-                        self:SetScript("OnUpdate", nil)
-                        detailText:HighlightText(0, 0)
-                        detailText:ClearFocus()
-                        -- Restore colored version
-                        updateDetail()
-                    elseif elapsed > 1.5 then
-                        self:SetAlpha(1 - ((elapsed - 1.5) / 0.5))
-                    end
-                end)
-            end
+        if selectedEntry then
+            doCopyFlash(formatTaintPlain(selectedEntry))
         end
+    end)
+
+    -- Copy ALL entries button (AI export)
+    local copyAllBtn = CreateFrame("Button", "BugsworthTaintCopyAllBtn", toolbar, "UIPanelButtonTemplate")
+    copyAllBtn:SetPoint("RIGHT", copyButton, "LEFT", -4, 0)
+    copyAllBtn:SetWidth(120)
+    copyAllBtn:SetHeight(22)
+    copyAllBtn:SetText("Копировать всё")
+    copyAllBtn:SetScript("OnClick", function()
+        local list = currentList
+        if not list or #list == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("|cFFEDA55fBugs|rworth: Нет taint-ошибок для копирования.")
+            return
+        end
+        doCopyFlash(formatAllTaintPlain(list))
     end)
 
     -- Copy flash

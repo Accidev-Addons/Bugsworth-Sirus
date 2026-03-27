@@ -631,10 +631,20 @@ local function saveTaintEntry(event, addon, func)
         end
     end
 
+    local addonVersion = ""
+    if addon and GetAddOnMetadata then
+        addonVersion = GetAddOnMetadata(addon, "Version") or ""
+    end
+    local inCombat = InCombatLockdown() and true or false
+    local zone = GetRealZoneText and GetRealZoneText() or ""
+    local subZone = GetSubZoneText and GetSubZoneText() or ""
+    local instanceName, instanceType = IsInInstance()
+
     local entry = {
         event = event,
         addon = addon or "?",
         func = func or "?",
+        addonVersion = addonVersion,
         stack = stack,
         locals = locals,
         callChain = chain,
@@ -642,6 +652,10 @@ local function saveTaintEntry(event, addon, func)
         lastTime = date("%H:%M:%S"),
         session = BugsworthDB.session or 0,
         counter = 1,
+        inCombat = inCombat,
+        zone = zone,
+        subZone = subZone,
+        instanceType = instanceType or "none",
     }
 
     log[#log + 1] = entry
