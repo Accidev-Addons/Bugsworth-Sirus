@@ -149,7 +149,7 @@ local function formatTaintDetail(entry)
 
     -- Hint
     lines[#lines + 1] = ""
-    lines[#lines + 1] = "|cff666666--- 'Копировать' — одну ошибку | 'Копировать всё' — весь лог для AI ---|r"
+    lines[#lines + 1] = "|cff666666--- 'Копировать' — одну ошибку | 'Копировать всё' — весь лог ---|r"
 
     return concat(lines, "\n")
 end
@@ -211,9 +211,6 @@ local function formatTaintPlain(entry)
     return concat(lines, "\n")
 end
 
------------------------------------------------------------------------
--- Format ALL taint entries as single AI-friendly report
------------------------------------------------------------------------
 local function formatAllTaintPlain(list)
     local lines = {}
 
@@ -607,7 +604,6 @@ local function createTaintViewer()
         end
     end)
 
-    -- Copy ALL entries button (AI export)
     local copyAllBtn = CreateFrame("Button", "BugsworthTaintCopyAllBtn", toolbar, "UIPanelButtonTemplate")
     copyAllBtn:SetPoint("RIGHT", copyButton, "LEFT", -4, 0)
     copyAllBtn:SetWidth(120)
