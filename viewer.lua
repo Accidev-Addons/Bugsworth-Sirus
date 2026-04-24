@@ -123,10 +123,11 @@ local function getFirstLine(err)
     local m = err.message
     if type(m) == "table" then m = table.concat(m, "") end
     if type(m) ~= "string" then return "?" end
-    local first = m:match("^(.-)\n") or m:sub(1, 80)
+    local first = m:match("^(.-)[\r\n]") or m:sub(1, 80)
     -- Strip Interface\AddOns\ prefix for brevity
     first = first:gsub("[Ii]nterface\\[Aa]dd[Oo]ns\\", "")
-    if first:len() > 50 then first = first:sub(1, 50) .. "..." end
+    first = first:gsub("[\r\n\t]", " ")
+    if first:len() > 28 then first = first:sub(1, 28) .. "..." end
     return first
 end
 
@@ -205,10 +206,11 @@ local function acquireNavFrame()
     local f = navFramePool[navFrameActive]
     if not f then
         f = CreateFrame("Button", nil, navContainer)
+        if f.SetClipsChildren then f:SetClipsChildren(true) end
         f.text = f:CreateFontString(nil, "OVERLAY")
-        f.text:SetPoint("LEFT", 2, 0)
-        f.text:SetPoint("RIGHT", -2, 0)
+        f.text:SetPoint("LEFT", f, "LEFT", 2, 0)
         f.text:SetJustifyH("LEFT")
+        f.text:SetJustifyV("MIDDLE")
         f.bg = f:CreateTexture(nil, "BACKGROUND")
         f.bg:SetAllPoints()
         f.bg:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
