@@ -679,6 +679,14 @@ function BC:CloseViewer()
 end
 
 -----------------------------------------------------------------------
+-- Expose currently displayed error list (respects active tab / filter).
+-- Used by copyall.lua so "Копировать все" copies only what the user sees.
+-----------------------------------------------------------------------
+function BC:GetCurrentContents()
+    return currentContents
+end
+
+-----------------------------------------------------------------------
 -- Error notification (sound + chat + auto-open)
 -----------------------------------------------------------------------
 local lastErrorTime = nil
