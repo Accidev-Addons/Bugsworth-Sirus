@@ -68,16 +68,43 @@ local function gatherErrors()
     return list or {}
 end
 
+-----------------------------------------------------------------------
+-- Deduplicate by the first line of the message (file:line: text).
+-- Counters are summed so the exported blob shows how many times each
+-- unique error fired across all occurrences. Uses a shallow copy of
+-- the error entry so we never mutate the saved-variable table.
+-----------------------------------------------------------------------
+local function dedupeErrors(list)
+    local seen = {}
+    local out = {}
+    for _, err in ipairs(list) do
+        local msg = flattenMessage(err.message)
+        local firstLine = msg:match("^[^\n]*") or msg
+        local existing = seen[firstLine]
+        if existing then
+            existing.counter = (existing.counter or 1) + (err.counter or 1)
+        else
+            local copy = {}
+            for k, v in pairs(err) do copy[k] = v end
+            seen[firstLine] = copy
+            out[#out + 1] = copy
+        end
+    end
+    return out
+end
+
 local function buildBlob()
-    local list = gatherErrors()
-    local total = #list
-    if total == 0 then
+    local raw = gatherErrors()
+    local rawTotal = #raw
+    if rawTotal == 0 then
         return "(ошибок нет / no errors)"
     end
+    local list = dedupeErrors(raw)
+    local total = #list
     local parts = {}
     parts[#parts + 1] = string.format(
-        "Bugsworth — всего ошибок: %d  (экспорт %s)\n",
-        total, date("%Y/%m/%d %H:%M:%S")
+        "Bugsworth — уникальных ошибок: %d (из %d всего)  (экспорт %s)\n",
+        total, rawTotal, date("%Y/%m/%d %H:%M:%S")
     )
     for i, err in ipairs(list) do
         parts[#parts + 1] = formatOne(err, i, total)
