@@ -12,6 +12,7 @@ Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 
 core.lua
 viewer.lua
+copyall.lua
 taint.lua
 config.lua
 minimap.lua
