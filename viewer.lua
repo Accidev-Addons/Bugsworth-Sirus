@@ -211,6 +211,9 @@ local function acquireNavFrame()
         f.text:SetPoint("LEFT", f, "LEFT", 2, 0)
         f.text:SetJustifyH("LEFT")
         f.text:SetJustifyV("MIDDLE")
+        if f.text.SetWordWrap then f.text:SetWordWrap(false) end
+        if f.text.SetNonSpaceWrap then f.text:SetNonSpaceWrap(false) end
+        if f.text.SetMaxLines then f.text:SetMaxLines(1) end
         f.bg = f:CreateTexture(nil, "BACKGROUND")
         f.bg:SetAllPoints()
         f.bg:SetTexture("Interface\\Tooltips\\UI-Tooltip-Background")
@@ -542,9 +545,15 @@ local function createViewer()
         end
     end)
 
-    -- Clear All button (left of center)
+
+    copyButton = CreateFrame("Button", "BugsworthCopyButton", detailPanel, "UIPanelButtonTemplate")
+    copyButton:SetPoint("BOTTOM", detailPanel, "BOTTOM", 0, 0)
+    copyButton:SetWidth(90)
+    copyButton:SetHeight(22)
+    copyButton:SetText("Копировать")
+
     local clearButton = CreateFrame("Button", "BugsworthClearButton", detailPanel, "UIPanelButtonTemplate")
-    clearButton:SetPoint("BOTTOM", detailPanel, "BOTTOM", -50, 0)
+    clearButton:SetPoint("RIGHT", copyButton, "LEFT", -4, 0)
     clearButton:SetWidth(90)
     clearButton:SetHeight(22)
     clearButton:SetText("Очистить")
@@ -558,12 +567,6 @@ local function createViewer()
         fullRefresh()
     end)
 
-    -- Copy All button (right of center)
-    copyButton = CreateFrame("Button", "BugsworthCopyButton", detailPanel, "UIPanelButtonTemplate")
-    copyButton:SetPoint("BOTTOM", detailPanel, "BOTTOM", 50, 0)
-    copyButton:SetWidth(90)
-    copyButton:SetHeight(22)
-    copyButton:SetText("Копировать")
     copyButton:SetScript("OnClick", function()
         if textArea then
             textArea:SetFocus()
