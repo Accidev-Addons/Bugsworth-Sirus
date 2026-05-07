@@ -193,8 +193,8 @@ end
 -----------------------------------------------------------------------
 -- Rebuild the left nav panel
 -----------------------------------------------------------------------
-local NAV_ROW_HEIGHT = 14
-local NAV_ADDON_HEIGHT = 20
+local NAV_ROW_HEIGHT = 16
+local NAV_ADDON_HEIGHT = 22
 local NAV_INDENT = 12
 
 -- Frame pool: reuse frames instead of creating/leaking new ones each rebuild
