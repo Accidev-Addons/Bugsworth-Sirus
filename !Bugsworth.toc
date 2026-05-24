@@ -2,7 +2,7 @@
 ## Title: |cFFEDA55fBugs|r|cFFFFFFFFworth|r
 ## Notes: Lua error capture, persistence, and display.
 ## Author: Synastria (fix for sirus Accidev)
-## Version: 2.0.2
+## Version: 2.1.0
 ## X-Category: Development Tools
 ## SavedVariables: BugsworthDB, BugsworthExport
 ## OptionalDeps: LibStub, CallbackHandler-1.0
