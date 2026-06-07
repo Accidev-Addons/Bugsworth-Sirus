@@ -95,12 +95,16 @@ function BC:GetAddonFromError(err)
     if type(m) == "table" then m = m[1] or "" end
     if type(m) ~= "string" then return "Unknown" end
     -- Try to extract addon name from stack trace path
-    local addon = m:match("[Aa][Dd][Dd][Oo][Nn][Ss]\\([^\\]+)")
-    if addon then return addon end
-    -- Try string eval pattern
-    addon = m:match('%[string ".-([^\\]+)\\')
-    if addon then return addon end
-    return "Unknown"
+    local first = m:match("^[^\n]*") or ""
+    local addon = first:match("[Aa][Dd][Dd][Oo][Nn][Ss]\\([^\\]+)")
+    if not addon then
+        addon = first:match("^([%w_%-%.]+)\\")
+        if addon then
+            addon = addon:gsub("%-[%d%.]+$", "")
+        end
+    end
+    if not addon or addon == "" then return "Unknown" end
+    return addon
 end
 
 function BC:IsAddonIgnored(addonName)
