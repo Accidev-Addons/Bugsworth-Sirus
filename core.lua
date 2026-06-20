@@ -435,7 +435,7 @@ local function grabError(err)
             local loc = debuglocals(level)
             if loc and loc ~= "" then
                 if not hasAny then
-                    errmsg = errmsg .. "\n|cFFFFFFFFЛокальные (все фреймы):|r\n"
+                    errmsg = errmsg .. "\nЛокальные:|r |cFFFFFFFF(все фреймы)|r\n"
                     hasAny = true
                 end
                 local frameName = info:match("^(.-)\n") or info
@@ -488,6 +488,8 @@ end
 -----------------------------------------------------------------------
 -- ADDON_LOADED handler
 -----------------------------------------------------------------------
+local taintDedupIndex = {}
+
 local function onAddonLoaded(addon)
     if addon == ADDON_NAME then
         real_seterrorhandler(grabError)
@@ -560,8 +562,6 @@ end
 -----------------------------------------------------------------------
 -- Taint analysis system
 -----------------------------------------------------------------------
-local taintDedupIndex = {}
-
 function BC:GetTaintLog()
     return BugsworthDB.taintLog or {}
 end
