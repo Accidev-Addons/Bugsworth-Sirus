@@ -449,10 +449,16 @@ end
 -- Full refresh
 -----------------------------------------------------------------------
 local function fullRefresh()
+    local source
     if viewSession then
-        currentList = BC:GetTaintLogForSession(viewSession)
+        source = BC:GetTaintLogForSession(viewSession)
     else
-        currentList = BC:GetTaintLog()
+        source = BC:GetTaintLog()
+    end
+
+    currentList = {}
+    for i = 1, #source do
+        currentList[i] = source[i]
     end
 
     -- Sort: most recent first

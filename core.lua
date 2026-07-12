@@ -583,12 +583,19 @@ function BC:ClearTaintLog()
     taintDedupIndex = {}
 end
 
+local function capText(s)
+    if type(s) == "string" and s:len() > MAX_STACK_LEN then
+        return s:sub(1, MAX_STACK_LEN) .. "..."
+    end
+    return s
+end
+
 local function saveTaintEntry(event, addon, func)
     if not BugsworthDB.taintLog then BugsworthDB.taintLog = {} end
     local log = BugsworthDB.taintLog
 
     -- Capture detailed debug info
-    local stack = debugstack(3) or ""
+    local stack = capText(debugstack(3) or "")
     local locals = ""
     if BugsworthDB.multiLocals then
         local level = 3
@@ -611,6 +618,7 @@ local function saveTaintEntry(event, addon, func)
     else
         locals = debuglocals(3) or ""
     end
+    locals = capText(locals)
 
     -- Dedup by addon+func within session
     local dedupKey = (addon or "") .. "\0" .. (func or "")
