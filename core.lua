@@ -823,7 +823,14 @@ SlashCmdList["BUGSWORTH"] = function(msg)
                 i, err.session or 0, err.time or "?", err.counter or 1)
             lines[#lines + 1] = m or "(нет сообщения)"
         end
-        BugsworthExport = concat(lines, "\n")
+        local blob = concat(lines, "\n")
+        local chunks = {}
+        while blob:len() > 980 do
+            chunks[#chunks + 1] = blob:sub(1, 980)
+            blob = blob:sub(981)
+        end
+        chunks[#chunks + 1] = blob
+        BugsworthExport = chunks
         DEFAULT_CHAT_FRAME:AddMessage(format(
             "|cFFEDA55fBugs|rworth: Экспортировано %d ошибок в BugsworthExport. |cff88ccff/reload|r и смотри WTF/Account/<name>/SavedVariables/Bugsworth.lua",
             #db

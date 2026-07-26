@@ -62,7 +62,7 @@ local function gatherErrors()
     if type(BC.GetCurrentContents) == "function" then
         list = BC:GetCurrentContents()
     end
-    if type(list) ~= "table" or #list == 0 then
+    if type(list) ~= "table" then
         list = BC:GetErrors()
     end
     return list or {}
@@ -119,6 +119,7 @@ end
 -- Popup frame (lazy-created, reused)
 -----------------------------------------------------------------------
 local popup
+local waiter
 
 local function createPopup()
     local f = CreateFrame("Frame", "BugsworthCopyFrame", UIParent)
@@ -229,7 +230,7 @@ function BC:ShowCopyAllPopup()
     edit:SetText(blob)
     popup:Show()
     -- Defer focus/highlight one frame so SetText fully applies
-    local waiter = CreateFrame("Frame")
+    if not waiter then waiter = CreateFrame("Frame") end
     local elapsed = 0
     waiter:SetScript("OnUpdate", function(self, dt)
         elapsed = elapsed + dt
