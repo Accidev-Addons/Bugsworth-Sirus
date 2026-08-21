@@ -1,9 +1,8 @@
 local ADDON_NAME = ...
 
 local format = string.format
-local find, match, sub, len, gsub, gmatch = string.find, string.match, string.sub, string.len, string.gsub, string.gmatch
 local floor, min = math.floor, math.min
-local concat, sort = table.concat, table.sort
+local concat = table.concat
 local tostring, type, pairs, ipairs, date = tostring, type, pairs, ipairs, date
 
 -- SavedVariables
@@ -29,15 +28,14 @@ local errorsSinceLastReset = 0
 local paused = nil
 local looping = false
 
--- Performance: session-scoped dedup index (Fix 2)
+-- Performance: session-scoped dedup index
 local dedupIndex = {}
 
--- Performance: addon version cache (Fix 3)
+-- Performance: addon version cache
 local addonVersionCache = {}
 
 -----------------------------------------------------------------------
--- Performance: O(n) bulk trim helper (Fix 1)
--- Replaces O(n²) table.remove(db, 1) loops
+-- Performance: O(n) bulk trim helper
 -----------------------------------------------------------------------
 local function trimDB(limit)
     local db = BugsworthDB.errors
@@ -78,7 +76,7 @@ end
 function BC:StoreError(errorObject)
     local db = BugsworthDB.errors
     db[#db + 1] = errorObject
-    local limit = BugsworthDB.limit or MAX_ERRORS
+    local limit = BugsworthDB.limit or 50
     trimDB(limit)
 end
 
@@ -257,7 +255,7 @@ local function saveError(message, errorType)
     end
     local dedupKey = oe_message and (oe_message:match("^(.-)\nЛокальные:") or oe_message) or ""
 
-    -- O(1) dedup lookup (Fix 2)
+    -- O(1) dedup lookup
     local existing = dedupIndex[dedupKey]
     local found = false
     if existing and existing.session == oe.session then
@@ -332,7 +330,7 @@ local function grabError(err)
             if match then
                 found = true
                 local addon = path:gsub("\\.*$", "")
-                -- Cached version lookup (Fix 3)
+                -- Cached version lookup
                 local cachedVersion = addonVersionCache[addon]
                 if cachedVersion == nil then
                     local addonObject = _G[addon]
@@ -415,7 +413,6 @@ local function grabError(err)
             path = trace
             file = ""
             line = ""
-            msg = line
         end
 
         errmsg = errmsg .. (path or "") .. (file or "") .. (line or "") .. ":" .. (msg or "") .. "\n"
@@ -520,7 +517,7 @@ local function onAddonLoaded(addon)
         -- Trim database
         trimDB(sv.limit)
 
-        -- Rebuild dedup index for current session (Fix 2)
+        -- Rebuild dedup index for current session
         dedupIndex = {}
         for _, err in ipairs(sv.errors) do
             if err.session == sv.session then
@@ -901,33 +898,33 @@ end
 -- BugGrabber compatibility shim
 -- Other addons that call BugGrabber:RegisterCallback etc still work
 -----------------------------------------------------------------------
-_G.BugGrabber = _G.BugGrabber or setmetatable({}, {
-    __index = function(_, key)
-        -- Map BugGrabber API → BUGSWORTH API
-        if BC[key] then return BC[key] end
-        return nil
-    end
-})
--- Ensure key methods are directly accessible
-_G.BugGrabber.GetDB = function() return BC:GetDB() end
-_G.BugGrabber.GetSessionId = function() return BC:GetSessionId() end
-_G.BugGrabber.StoreError = function(_, eo) return BC:StoreError(eo) end
-_G.BugGrabber.Reset = function() return BC:Reset() end
-_G.BugGrabber.GetSave = function() return true end  -- always persist
-_G.BugGrabber.ToggleSave = function() end            -- noop, always save
-_G.BugGrabber.GetLimit = function() return BC:GetLimit() end
-_G.BugGrabber.SetLimit = function(_, l) return BC:SetLimit(l) end
-_G.BugGrabber.IsThrottling = function() return BC:IsThrottling() end
-_G.BugGrabber.UseThrottling = function(_, f) return BC:UseThrottling(f) end
-_G.BugGrabber.RegisterAddonActionEvents = function() return BC:RegisterAddonActionEvents() end
-_G.BugGrabber.UnregisterAddonActionEvents = function() return BC:UnregisterAddonActionEvents() end
-_G.BugGrabber.IsPaused = function() return BC:IsPaused() end
-_G.BugGrabber.Pause = function() return BC:Pause() end
-_G.BugGrabber.Resume = function() return BC:Resume() end
+if not _G.BugGrabber then
+    _G.BugGrabber = setmetatable({}, {
+        __index = function(_, key)
+            -- Map BugGrabber API → BUGSWORTH API
+            if BC[key] then return BC[key] end
+            return nil
+        end
+    })
+    -- Ensure key methods are directly accessible
+    _G.BugGrabber.GetDB = function() return BC:GetDB() end
+    _G.BugGrabber.GetSessionId = function() return BC:GetSessionId() end
+    _G.BugGrabber.StoreError = function(_, eo) return BC:StoreError(eo) end
+    _G.BugGrabber.Reset = function() return BC:Reset() end
+    _G.BugGrabber.GetSave = function() return true end  -- always persist
+    _G.BugGrabber.ToggleSave = function() end            -- noop, always save
+    _G.BugGrabber.GetLimit = function() return BC:GetLimit() end
+    _G.BugGrabber.SetLimit = function(_, l) return BC:SetLimit(l) end
+    _G.BugGrabber.IsThrottling = function() return BC:IsThrottling() end
+    _G.BugGrabber.UseThrottling = function(_, f) return BC:UseThrottling(f) end
+    _G.BugGrabber.RegisterAddonActionEvents = function() return BC:RegisterAddonActionEvents() end
+    _G.BugGrabber.UnregisterAddonActionEvents = function() return BC:UnregisterAddonActionEvents() end
+    _G.BugGrabber.IsPaused = function() return BC:IsPaused() end
+    _G.BugGrabber.Pause = function() return BC:Pause() end
+    _G.BugGrabber.Resume = function() return BC:Resume() end
 
--- Forward RegisterCallback from BugGrabber → BUGSWORTH
--- (handles BugGrabber_BugGrabbed → Bugsworth_BugGrabbed mapping)
-if not _G.BugGrabber.RegisterCallback then
+    -- Forward RegisterCallback from BugGrabber → BUGSWORTH
+    -- (handles BugGrabber_BugGrabbed → Bugsworth_BugGrabbed mapping)
     local bgShim = _G.BugGrabber
     function bgShim:RegisterCallback(eventName, funcOrMethod, ...)
         if not callbacks then setupCallbacks() end

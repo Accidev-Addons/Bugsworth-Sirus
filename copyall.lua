@@ -1,18 +1,6 @@
------------------------------------------------------------------------
--- BUGSWORTH · copyall.lua
--- Adds a "Копировать все" button that aggregates every error currently
--- visible in the viewer (respecting the active tab: all / session / prev)
--- and shows it in a popup EditBox for Ctrl+A / Ctrl+C.
---
--- 3.3.5a Lua 5.1 compatible. Deliberately kept in its own file so it can
--- be removed / updated without touching viewer.lua.
------------------------------------------------------------------------
-
 local BC = _G.Bugsworth
 if not BC then return end
 
--- Safe pcall wrapper for use inside OnClick handlers so a failure here
--- never breaks the error browser itself.
 local function safeCall(fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then
@@ -49,15 +37,7 @@ local function formatOne(err, idx, total)
     return header .. "\n" .. body
 end
 
------------------------------------------------------------------------
--- Build full text blob from the currently displayed errors.
--- We rely on the same accessor the viewer uses: BC:GetErrors(sessionId).
--- We read BugsworthCopyAll_CurrentContents if the viewer set it; else
--- we fall back to the live DB.
------------------------------------------------------------------------
 local function gatherErrors()
-    -- Prefer the viewer's currently displayed list (respects active tab
-    -- and session filter). Fall back to the whole DB if unavailable.
     local list
     if type(BC.GetCurrentContents) == "function" then
         list = BC:GetCurrentContents()
@@ -68,12 +48,6 @@ local function gatherErrors()
     return list or {}
 end
 
------------------------------------------------------------------------
--- Deduplicate by the first line of the message (file:line: text).
--- Counters are summed so the exported blob shows how many times each
--- unique error fired across all occurrences. Uses a shallow copy of
--- the error entry so we never mutate the saved-variable table.
------------------------------------------------------------------------
 local function dedupeErrors(list)
     local seen = {}
     local out = {}
@@ -185,7 +159,6 @@ local function createPopup()
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetFontObject(ChatFontNormal)
-    -- 99999 chosen as an effectively-unlimited cap (3.3.5a has no "0 = unlimited")
     edit:SetMaxLetters(99999)
     if edit.SetCountInvisibleLetters then
         edit:SetCountInvisibleLetters(false)
@@ -196,7 +169,6 @@ local function createPopup()
         self:ClearFocus()
         f:Hide()
     end)
-    -- Prevent accidental edits from committing anything odd
     edit:SetScript("OnEnterPressed", function(self) self:Insert("\n") end)
     scroll:SetScrollChild(edit)
 
@@ -204,7 +176,6 @@ local function createPopup()
     f.scrollFrame = scroll
     f.titleBar = titleBg
 
-    -- When the scroll frame width is known, match the edit width so text wraps
     f:SetScript("OnShow", function(self)
         if self.editBox and self.scrollFrame then
             self.editBox:SetWidth(self.scrollFrame:GetWidth())
@@ -223,13 +194,11 @@ function BC:ShowCopyAllPopup()
     end
     local blob = buildBlob()
     local edit = popup.editBox
-    -- Some very long blobs can upset SetText; chunk-cap at ~60k to be safe.
     if blob:len() > 60000 then
         blob = blob:sub(1, 60000) .. "\n\n(...truncated — слишком много ошибок, показаны первые 60000 символов)"
     end
     edit:SetText(blob)
     popup:Show()
-    -- Defer focus/highlight one frame so SetText fully applies
     if not waiter then waiter = CreateFrame("Frame") end
     local elapsed = 0
     waiter:SetScript("OnUpdate", function(self, dt)
@@ -244,14 +213,7 @@ function BC:ShowCopyAllPopup()
     end)
 end
 
------------------------------------------------------------------------
--- Hook into the viewer: add a "Копировать все" button.
--- The viewer is created lazily on first OpenViewer(), so we wrap that.
------------------------------------------------------------------------
 local function attachButton()
-    -- Viewer button layout (viewer.lua): Clear at offset -50, Copy at +50,
-    -- prev at BOTTOMLEFT, next at BOTTOMRIGHT. We place Copy All directly
-    -- to the right of "Копировать" (which only copies the current error).
     local copyBtn = _G.BugsworthCopyButton
     if not copyBtn then return false end
     if _G.BugsworthCopyAllButton then return true end -- already created
@@ -277,8 +239,6 @@ local function attachButton()
     return true
 end
 
--- Try immediate attach (in case viewer was already created); otherwise
--- wrap OpenViewer to attach on first open.
 if not attachButton() then
     local origOpenViewer = BC.OpenViewer
     if type(origOpenViewer) == "function" then

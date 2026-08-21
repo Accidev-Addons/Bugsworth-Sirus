@@ -52,9 +52,7 @@ local function getAngle()
 end
 
 -- Drag handlers
-local isDragging = false
 button:SetScript("OnDragStart", function(self)
-    isDragging = true
     self:SetScript("OnUpdate", function()
         local angle = getAngle()
         BugsworthDB.minimapAngle = angle
@@ -63,7 +61,6 @@ button:SetScript("OnDragStart", function(self)
 end)
 
 button:SetScript("OnDragStop", function(self)
-    isDragging = false
     self:SetScript("OnUpdate", nil)
 end)
 

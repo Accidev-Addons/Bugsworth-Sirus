@@ -14,7 +14,6 @@ local currentContents = nil   -- flat list of errors being viewed
 local currentSession = nil    -- session filter (nil = all)
 local selectedError = nil     -- currently displayed error object
 local searchFilter = ""       -- active search string
-local initialized = false
 
 -- UI element refs
 local navScroll, navContainer, detailScroll, textArea
@@ -39,8 +38,6 @@ function BC:ColorError(err)
     local ret = err
     ret = ret:gsub("|([^chHr])", "||%1")
     ret = ret:gsub("|$", "||")
-    ret = ret:gsub("\nЛокальные:\n", "\n|cFFFFFFFFЛокальные:|r\n")
-    ret = ret:gsub("\nЛокальные %(все фреймы%):\n", "\n|cFFFFFFFFЛокальные (все фреймы):|r\n")
     ret = ret:gsub("(%-%-%-) Фрейм (%d+): (.-) (%-%-%-)", "|cff44aaff%1 Фрейм %2: %3 %4|r")
     ret = ret:gsub("\nПамять аддона:", "\n|cFFFFFFFFПамять аддона:|r")
     ret = ret:gsub("[Ii][Nn][Tt][Ee][Rr][Ff][Aa][Cc][Ee]\\[Aa][Dd][Dd][Oo][Nn][Ss]\\", "")
@@ -79,10 +76,13 @@ end
 -----------------------------------------------------------------------
 -- Group errors by addon, respecting ignore list and search filter
 -----------------------------------------------------------------------
+local visibleErrors = {}
+
 local function groupByAddon(errors, filter)
     local groups = {}      -- { addonName = { errors = {}, count = 0 } }
     local order = {}       -- insertion order
     local filterLow = filter and filter:lower() or ""
+    visibleErrors = {}
 
     for _, err in ipairs(errors) do
         local addon = BC:GetAddonFromError(err)
@@ -106,6 +106,7 @@ local function groupByAddon(errors, filter)
                 groups[addon].errors[#groups[addon].errors + 1] = err
                 groups[addon].count = groups[addon].count + 1
                 groups[addon].totalHits = groups[addon].totalHits + (err.counter or 1)
+                visibleErrors[err] = true
             end
         end
     end
@@ -399,8 +400,7 @@ local function createViewer()
     local TOOLBAR_H = 28
 
     local window = CreateFrame("Frame", "BugsworthFrame", UIParent)
-    UIPanelWindows["BugsworthFrame"] = { area = "center", pushable = 0, whileDead = 1 }
-    HideUIPanel(window)
+    window:Hide()
 
     window:SetFrameStrata("FULLSCREEN_DIALOG")
     window:SetWidth(WINDOW_W)
@@ -468,6 +468,10 @@ local function createViewer()
     searchBox:SetScript("OnTextChanged", function(self)
         searchFilter = self:GetText() or ""
         rebuildNav()
+        if selectedError and not visibleErrors[selectedError] then
+            selectedError = nil
+            updateDetail()
+        end
     end)
     searchBox:SetScript("OnEscapePressed", function(self)
         self:SetText("")
@@ -659,7 +663,6 @@ local function createViewer()
     end
 
     viewerFrame = window
-    initialized = true
     return window
 end
 
@@ -674,17 +677,13 @@ function BC:OpenViewer()
     end
 
     fullRefresh()
-    ShowUIPanel(BugsworthFrame)
+    viewerFrame:Show()
 end
 
 function BC:CloseViewer()
-    if viewerFrame then HideUIPanel(BugsworthFrame) end
+    if viewerFrame then viewerFrame:Hide() end
 end
 
------------------------------------------------------------------------
--- Expose currently displayed error list (respects active tab / filter).
--- Used by copyall.lua so "Копировать все" copies only what the user sees.
------------------------------------------------------------------------
 function BC:GetCurrentContents()
     return currentContents
 end

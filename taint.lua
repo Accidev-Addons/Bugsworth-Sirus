@@ -16,7 +16,6 @@ local taintFrame = nil
 local selectedEntry = nil
 local currentList = nil       -- filtered/sorted list being displayed
 local viewSession = nil       -- nil = all, number = specific session
-local initialized = false
 
 -- UI refs
 local listContainer, listScroll
@@ -682,7 +681,6 @@ local function createTaintViewer()
     detailScroll:SetScrollChild(detailText)
 
     taintFrame = window
-    initialized = true
     return window
 end
 
